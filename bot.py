@@ -33,12 +33,13 @@ def process_video(update, url):
     if "https://vm.tiktok.com/" in url:
         status = message.reply_markdown(u"Downloading %s 🤯🤓😇🤖" % url, disable_notification=True)
         with NamedTemporaryFile(suffix=".mp4", delete=False) as f:
-            with requests.get(TikTok(url).get_video_url(), stream=True) as r:
+            data = TikTok(url).get_video()
+            with requests.get(data.get("src"), stream=True) as r:
                 r.raise_for_status()
                 shutil.copyfileobj(r.raw, f)
             status.delete()
             logger.info("Processed video %s" % url)
-            message.reply_video(open(f.name, "rb"), disable_notification=True)
+            message.reply_video(open(f.name, "rb"), disable_notification=True, caption=data.get("caption"))
 
 
 if __name__ == '__main__':
