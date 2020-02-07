@@ -32,7 +32,7 @@ def process_video(update, url):
     message = update.effective_message
     if "https://vm.tiktok.com/" in url:
         status = message.reply_markdown(u"Downloading %s 🤯🤓😇🤖" % url, disable_notification=True)
-        with NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+        with NamedTemporaryFile(suffix=".mp4") as f:
             data = TikTok(url).get_video()
             with requests.get(data.get("src"), stream=True) as r:
                 r.raise_for_status()
