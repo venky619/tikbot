@@ -22,20 +22,22 @@ updater = Updater(token=os.getenv("TELEGRAM_TOKEN"), use_context=True)
 dispatcher = updater.dispatcher
 
 
-@run_async
 def tiktok_handler(update, context):
     message = update.effective_message
     for url in message.parse_entities([MessageEntity.URL]).values():
         process_video(update, url)
 
 
-@run_async
 def process_video(update, url):
     message = update.effective_message
     if "https://vm.tiktok.com/" in url:
         status = message.reply_markdown(u"Downloading %s 🤯🤓😇🤖" % url, disable_notification=True)
-        with NamedTemporaryFile(suffix=".mp4") as f:
+        try:
             data = TikTok(url).get_video()
+        except Exception as e:
+            status.edit_text("Could not download video 😭 are you sure this is a valid TikTok video?")
+            return
+        with NamedTemporaryFile(suffix=".mp4") as f:
             with requests.get(data.get("src"), stream=True) as r:
                 r.raise_for_status()
                 shutil.copyfileobj(r.raw, f)
@@ -44,22 +46,25 @@ def process_video(update, url):
             message.reply_video(open(f.name, "rb"), disable_notification=True, caption=data.get("caption"))
 
 
-@run_async
 def inline_handler(update, context):
     query = update.inline_query.query
     if "https://vm.tiktok.com" in query:
-        data = TikTok(query, render=True).get_video()
-        results = [
-            InlineQueryResultVideo(
-                id=data.get("id"),
-                video_url=data.get("src"),
-                mime_type="video/mp4",
-                caption=data.get("caption"),
-                title="Send this video",
-                description=data.get("title"),
-                thumb_url=data.get("thumbnail")
-            )]
-        update.inline_query.answer(results)
+        query = query.split(" ")[0]
+        try:
+            data = TikTok(query).get_video()
+            results = [
+                InlineQueryResultVideo(
+                    id=data.get("id"),
+                    video_url=data.get("src"),
+                    mime_type="video/mp4",
+                    caption=data.get("caption"),
+                    title="Send this video",
+                    description=data.get("title"),
+                    thumb_url="https://storage.googleapis.com/tiktokbot/icon.jpg",
+                )]
+            update.inline_query.answer(results)
+        except Exception:
+            return
 
 
 def start(update, context):

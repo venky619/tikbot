@@ -6,11 +6,10 @@ from requests_html import AsyncHTMLSession, HTMLSession
 
 
 class TikTok:
-    def __init__(self, url: str, render=False):
+    def __init__(self, url: str):
         """
         :param url: TikTok share URL
         """
-        self.render = render
         assert "https://vm.tiktok.com" in url, "Invalid TikTok share link"
         self.url = url
         self.session = HTMLSession()
@@ -29,11 +28,6 @@ class TikTok:
         :return: dict
         """
         req = self.session.get(self.url)
-        thumbnail = None
-        if self.render:
-            req.html.render()
-            style = req.html.find(".image-card", first=True).attrs.get("style")
-            thumbnail = style[style.find("(") + 2:-3]
         assert req.ok, "Could not make request to tiktok: %s" % req
         src = req.html.find("video", first=True).attrs.get("src")
         assert src is not None, "Could not find video"
@@ -41,4 +35,4 @@ class TikTok:
         music = req.html.find(".music-info", first=True).text
         stats = req.html.find(".video-meta-count", first=True).text
         vid_id = req.html.find("input", first=True).attrs.get("value").split("/")[-1]
-        return {"src": src, "caption": "%s (%s) - %s" % (video_title, music, stats), "title": video_title, "music": music, "stats": stats, "thumbnail": thumbnail, "id": vid_id}
+        return {"src": src, "caption": "%s (%s) - %s" % (video_title, music, stats), "title": video_title, "music": music, "stats": stats, "id": vid_id}
