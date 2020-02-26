@@ -1,8 +1,4 @@
-from tempfile import TemporaryFile
-from typing import Tuple
-
-import requests
-from requests_html import AsyncHTMLSession, HTMLSession
+from requests_html import HTMLSession
 
 
 class TikTok:

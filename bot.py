@@ -1,15 +1,12 @@
 import logging
 import os
 import shutil
-import tempfile
-from tempfile import TemporaryFile, NamedTemporaryFile
-from uuid import uuid4
+from tempfile import NamedTemporaryFile
 
 import requests
 from dotenv import load_dotenv, find_dotenv
-from telegram import MessageEntity, InlineQueryResultArticle, InputTextMessageContent, ParseMode, InlineQueryResultVideo
-from telegram.ext import Updater, MessageHandler, Filters, run_async, InlineQueryHandler, CommandHandler
-from telegram.utils.helpers import escape_markdown
+from telegram import MessageEntity, InlineQueryResultVideo
+from telegram.ext import Updater, MessageHandler, Filters, InlineQueryHandler, CommandHandler
 
 from tiktok import TikTok
 
