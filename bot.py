@@ -44,9 +44,8 @@ def process_video(update, url):
 
 
 def inline_handler(update, context):
-    query = update.inline_query.query
-    if "https://vm.tiktok.com" in query:
-        query = query.split(" ")[0]
+    query = update.inline_query.query.split(" ")[0]
+    if query and "https://vm.tiktok.com" in query:
         try:
             data = TikTok(query).get_video()
             results = [
