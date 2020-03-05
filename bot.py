@@ -22,13 +22,15 @@ dispatcher = updater.dispatcher
 
 def tiktok_handler(update, context):
     message = update.effective_message
-    text = "".join([str(message.text).replace(url, "") for url in message.parse_entities([MessageEntity.URL]).values()])
-    for url in message.parse_entities([MessageEntity.URL]).values():
+    e =  message.parse_entities([MessageEntity.URL]).values()
+    text = "".join([str(message.text).replace(url, "") for url in e])
+    for url in e:
         process_video(update, url, text)
-    try:
-        message.delete()
-    except BadRequest:
-        message.reply_markdown("Could not delete the original message 😔\nMake sure I have sufficient permissions in your group!")
+    if len(e) > 0:
+        try:
+            message.delete()
+        except BadRequest:
+            message.reply_markdown("Could not delete the original message 😔\nMake sure I have sufficient permissions in your group!")
 
 
 def process_video(update, url: str, text: str):
