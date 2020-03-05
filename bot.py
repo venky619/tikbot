@@ -6,6 +6,7 @@ from tempfile import NamedTemporaryFile
 import requests
 from dotenv import load_dotenv, find_dotenv
 from telegram import MessageEntity, InlineQueryResultVideo
+from telegram.error import BadRequest
 from telegram.ext import Updater, MessageHandler, Filters, InlineQueryHandler, CommandHandler
 
 from tiktok import TikTok
@@ -21,13 +22,18 @@ dispatcher = updater.dispatcher
 
 def tiktok_handler(update, context):
     message = update.effective_message
+    text = "".join([str(message.text).replace(url, "") for url in message.parse_entities([MessageEntity.URL]).values()])
     for url in message.parse_entities([MessageEntity.URL]).values():
-        process_video(update, url)
+        process_video(update, url, text)
+    try:
+        message.delete()
+    except BadRequest:
+        message.reply_markdown("Could not delete the original message 😔\nMake sure I have sufficient permissions in your group!")
 
 
-def process_video(update, url):
+def process_video(update, url: str, text: str):
     message = update.effective_message
-    if "https://vm.tiktok.com/" in url:
+    if "vm.tiktok.com/" in url:
         status = message.reply_markdown(u"Downloading %s 🤯🤓😇🤖" % url, disable_notification=True)
         try:
             data = TikTok(url).get_video()
@@ -40,12 +46,13 @@ def process_video(update, url):
                 shutil.copyfileobj(r.raw, f)
             status.delete()
             logger.info("Processed video %s" % url)
-            message.reply_video(open(f.name, "rb"), disable_notification=True, caption=data.get("caption"))
+            caption = data.get("caption")
+            return message.reply_video(open(f.name, "rb"), disable_notification=True, caption=f"{caption}" if not text else f"{message.from_user.name}: {text}\n{caption}")
 
 
 def inline_handler(update, context):
     query = update.inline_query.query.split(" ")[0]
-    if query and "https://vm.tiktok.com" in query:
+    if query and "vm.tiktok.com" in query:
         try:
             data = TikTok(query).get_video()
             results = [
