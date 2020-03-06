@@ -27,12 +27,6 @@ def tiktok_handler(update, context):
     for url in e:
         process_video(update, url, text)
 
-    if len(e) > 0:
-        try:
-            message.delete()
-        except BadRequest:
-            message.reply_markdown("Could not delete the original message 😔\nMake sure I have sufficient permissions in your group!")
-
 
 def process_video(update, url: str, text: str):
     message = update.effective_message
@@ -50,6 +44,10 @@ def process_video(update, url: str, text: str):
             status.delete()
             logger.info("Processed video %s" % url)
             caption = data.get("caption")
+            try:
+                message.delete()
+            except BadRequest:
+                pass
             return message.reply_video(open(f.name, "rb"), disable_notification=True, caption=f"{caption}" if not text else f"{message.from_user.name}: {text}\n{caption}")
 
 
