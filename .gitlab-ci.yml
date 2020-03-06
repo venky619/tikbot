@@ -1,25 +1,20 @@
-image: docker:latest
-services:
-  - docker:dind
 stages:
   - build
-
-build:
-  before_script:
-    - docker info
-  stage: build
-  variables:
-    IMAGE_TAG: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_REF_SHA
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker build -t $IMAGAE_TAG .
-    - docker push $IMAGE_TAG
-  only:
-    - master
-  except:
-    variables:
-      - $CI_COMMIT_MESSAGE =~ /skip-build/
+  - test
 
 include:
   - template: Container-Scanning.gitlab-ci.yml
-  - template: Dependency-Scanning.gitlab-ci.yml
+
+build:
+  image: docker:stable
+  stage: build
+  variables:
+    IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
+  script:
+    - docker info
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build -t $IMAGE .
+    - docker push $IMAGE
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /skip-build/
