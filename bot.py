@@ -22,15 +22,14 @@ dispatcher = updater.dispatcher
 
 def tiktok_handler(update, context):
     message = update.effective_message
-    e = message.parse_entities([MessageEntity.URL]).values()
+    e = [n for n in message.parse_entities([MessageEntity.URL]).values() if "vm.tiktok.com/" in n]
     text = "".join([str(message.text).replace(url, "") for url in e])
-    is_deleted = False
     for url in e:
         process_video(update, url, text)
+
+    if len(e) > 0:
         try:
-            if not is_deleted:
-                message.delete()
-                is_deleted = True
+            message.delete()
         except BadRequest:
             message.reply_markdown("Could not delete the original message 😔\nMake sure I have sufficient permissions in your group!")
 
