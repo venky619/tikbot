@@ -9,6 +9,7 @@ verify_ssl = true
 python-telegram-bot = "*"
 python-dotenv = "*"
 requests-html = "*"
+sentry-sdk = "*"
 
 [requires]
 python_version = "3.8"

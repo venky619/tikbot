@@ -4,6 +4,7 @@ import shutil
 from tempfile import NamedTemporaryFile
 
 import requests
+import sentry_sdk
 from dotenv import load_dotenv, find_dotenv
 from telegram import MessageEntity, InlineQueryResultVideo
 from telegram.error import BadRequest
@@ -18,6 +19,9 @@ logger = logging.getLogger("TikBot")
 
 updater = Updater(token=os.getenv("TELEGRAM_TOKEN"), use_context=True)
 dispatcher = updater.dispatcher
+
+if os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(os.getenv("SENTRY_DSN"))
 
 
 def tiktok_handler(update, context):
@@ -44,11 +48,12 @@ def process_video(update, url: str, text: str):
             status.delete()
             logger.info("Processed video %s" % url)
             caption = data.get("caption")
+            reply = message.reply_video(open(f.name, "rb"), disable_notification=True, caption=f"{caption}" if not text else f"{message.from_user.name}: {text}\n{caption}")
             try:
                 message.delete()
             except BadRequest:
                 pass
-            return message.reply_video(open(f.name, "rb"), disable_notification=True, caption=f"{caption}" if not text else f"{message.from_user.name}: {text}\n{caption}")
+            return reply
 
 
 def inline_handler(update, context):
