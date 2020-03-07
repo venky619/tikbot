@@ -1,6 +1,5 @@
-FROM python:3
+FROM registry.gitlab.com/fronbasal/docker-pipenv
 WORKDIR /app
 COPY . /app
-RUN pip3 install pipenv
 RUN pipenv install --system
 CMD ["python", "bot.py"]
