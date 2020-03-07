@@ -16,9 +16,10 @@ build:
   stage: build
   variables:
     IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
-  script:
+  before_script:
     - docker info
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
     - docker build -t $IMAGE .
     - docker push $IMAGE
   except:
@@ -29,6 +30,9 @@ build:
 release:
   image: docker:stable
   stage: release
+  before_script:
+    - docker info
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
   only:
     - master
   variables:
