@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - release
 
 
 image: docker:latest
@@ -24,3 +25,16 @@ build:
     variables:
       - $CI_COMMIT_MESSAGE =~ /skip-build/
       - $CI_COMMIT_MESSAGE =~ /no-build/
+
+release:
+  image: docker:stable
+  stage: release
+  only:
+    - master
+  variables:
+    IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
+    PROD_IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:latest
+  script:
+    - docker pull $IMAGE
+    - docker tag $IMAGE $PROD_IMAGE
+    - docker push $PROD_IMAGE
