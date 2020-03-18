@@ -48,7 +48,7 @@ def process_video(update, url: str, text: str):
             status.delete()
             logger.info("Processed video %s" % url)
             caption = data.get("caption")
-            reply = message.reply_video(open(f.name, "rb"), disable_notification=True, caption=f"{caption}" if not text else f"{message.from_user.name}: {text}\n{caption}")
+            reply = message.reply_video(open(f.name, "rb"), disable_notification=True, caption=(f"{message.from_user.name} {caption}" if not text else f"{message.from_user.name}: {text}\n{caption}") + url)
             try:
                 message.delete()
             except BadRequest:
