@@ -50,7 +50,10 @@ release:
     - docker pull $IMAGE
     - docker tag $IMAGE $PROD_IMAGE
     - docker push $PROD_IMAGE
-
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /skip-build/
+      - $CI_COMMIT_MESSAGE =~ /no-build/
 
 deploy:
   <<: *job_definition
@@ -63,3 +66,7 @@ deploy:
     - master
   dependencies:
     - build
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /skip-deploy/
+      - $CI_COMMIT_MESSAGE =~ /no-deploy/
