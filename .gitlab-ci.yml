@@ -2,6 +2,7 @@ stages:
   - build
   - test
   - release
+  - deploy
 
 
 image: docker:latest
@@ -11,8 +12,16 @@ services:
 include:
   - template: Container-Scanning.gitlab-ci.yml
 
+
+.job_template: &job_definition
+  before_script:
+    - eval $(ssh-agent -s)
+    - echo "$SSH_KEY" | tr -d '\r' | ssh-add - > /dev/null
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - export $(cat .env)
+
 build:
-  image: docker:stable
   stage: build
   variables:
     IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
@@ -28,7 +37,6 @@ build:
       - $CI_COMMIT_MESSAGE =~ /no-build/
 
 release:
-  image: docker:stable
   stage: release
   before_script:
     - docker info
@@ -42,3 +50,16 @@ release:
     - docker pull $IMAGE
     - docker tag $IMAGE $PROD_IMAGE
     - docker push $PROD_IMAGE
+
+
+deploy:
+  <<: *job_definition
+  stage: deploy
+  environment:
+    name: production
+  script:
+    - ssh -t -o "StrictHostKeyChecking no" $STAGING_USER@$STAGING_IP "cd tikbot; ./start.sh --update"
+  only:
+    - master
+  dependencies:
+    - build
