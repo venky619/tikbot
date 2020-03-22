@@ -6,7 +6,7 @@ from tempfile import NamedTemporaryFile
 import requests
 import sentry_sdk
 from dotenv import load_dotenv, find_dotenv
-from telegram import MessageEntity, InlineQueryResultVideo
+from telegram import MessageEntity, InlineQueryResultVideo, ParseMode
 from telegram.error import BadRequest
 from telegram.ext import (
     Updater,
@@ -75,10 +75,12 @@ def process_video(update, url: str, text: str):
                 open(f.name, "rb"),
                 disable_notification=True,
                 caption=(
-                    f"_({message.from_user.name})_ \n{caption} "
+                    f"__({message.from_user.name})__ "
                     if not text
-                    else f"(_{message.from_user.name}) {text}_\n[{caption}](url) "
-                ), parse_mode=telegram.ParseMode.MARKDOWN
+                    else f"_({message.from_user.name})__ **{text}** "
+                )
+                + "\n\n[{caption}]({url})",
+                parse_mode=ParseMode.MARKDOWN,
             )
             try:
                 message.delete()
