@@ -68,11 +68,11 @@ def process_video(update, url: str, text: str):
                 open(f.name, "rb"),
                 disable_notification=True,
                 caption=(
-                            f"({message.from_user.name}) {caption} "
-                            if not text
-                            else f"({message.from_user.name}) {text}\n{caption} "
-                        )
-                        + url,
+                    f"({message.from_user.name}) {caption} "
+                    if not text
+                    else f"({message.from_user.name}) {text}\n{caption} "
+                )
+                + url,
             )
             try:
                 message.delete()
