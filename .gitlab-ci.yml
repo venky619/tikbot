@@ -19,7 +19,6 @@ include:
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    - export $(cat .env)
 
 build:
   stage: build
