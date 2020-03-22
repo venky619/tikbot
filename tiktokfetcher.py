@@ -1,15 +1,17 @@
 from requests_html import HTMLSession
 
 
-class TikTok:
+class TikTokFetcher:
     def __init__(self, url: str):
         """
+        Initialize a new TikTok Fetcher
         :param url: TikTok share URL
         """
         assert "https://vm.tiktok.com" in url, "Invalid TikTok share link"
         self.url = url
-        self.session = HTMLSession()
 
+        # Initialize the requests session
+        self.session = HTMLSession()
         self.session.headers = {
             "accept-encoding": "gzip, deflate, br",
             "accept-language": "en",
@@ -23,10 +25,13 @@ class TikTok:
         Get the configured video's src and caption
         :return: dict
         """
+        # Fetch the original URL
         req = self.session.get(self.url)
         assert req.ok, "Could not make request to tiktok: %s" % req
         src = req.html.find("video", first=True).attrs.get("src")
         assert src is not None, "Could not find video"
+
+        # Grab the required attributes
         video_title = req.html.find(".video-meta-title", first=True).text
         music = req.html.find(".music-info", first=True).text
         stats = req.html.find(".video-meta-count", first=True).text

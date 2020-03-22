@@ -16,7 +16,7 @@ from telegram.ext import (
     CommandHandler,
 )
 
-from tiktok import TikTok
+from tiktokfetcher import TikTokFetcher
 
 load_dotenv(find_dotenv())
 
@@ -34,36 +34,43 @@ if os.getenv("SENTRY_DSN"):
 
 def tiktok_handler(update, context):
     message = update.effective_message
-    e = [
+    message_entities = [
         n
         for n in message.parse_entities([MessageEntity.URL]).values()
         if "vm.tiktok.com/" in n
     ]
-    text = "".join([str(message.text).replace(url, "") for url in e])
-    for url in e:
-        process_video(update, url, text)
+    # The input message without the TikTok URL
+    original_message = "".join(
+        [str(message.text).replace(url, "") for url in message_entities]
+    )
+    # Iterate over all TikTok URLs
+    for url in message_entities:
+        process_video(update, url, original_message)
 
 
 def process_video(update, url: str, text: str):
     message = update.effective_message
     if "vm.tiktok.com/" in url:
-        status = message.reply_markdown(
+        processing_status = message.reply_markdown(
             "Downloading %s 🤯🤓😇🤖" % url, disable_notification=True
         )
         try:
-            data = TikTok(url).get_video()
-        except Exception as e:
-            status.edit_text(
+            video_data = TikTokFetcher(url).get_video()
+        except Exception:
+            # Update the status
+            processing_status.edit_text(
                 "Could not download video 😭 are you sure this is a valid TikTok video?"
             )
             return
+        # Initialize a temporary file in-memory for storing and then uploading the video
         with NamedTemporaryFile(suffix=".mp4") as f:
-            with requests.get(data.get("src"), stream=True) as r:
+            # Get the video
+            with requests.get(video_data.get("src"), stream=True) as r:
                 r.raise_for_status()
                 shutil.copyfileobj(r.raw, f)
-            status.delete()
+            processing_status.delete()
             logger.info("Processed video %s" % url)
-            caption = data.get("caption")
+            caption = video_data.get("caption")
             reply = message.reply_video(
                 open(f.name, "rb"),
                 disable_notification=True,
@@ -85,7 +92,7 @@ def inline_handler(update, context):
     query = update.inline_query.query.split(" ")[0]
     if query and "vm.tiktok.com" in query:
         try:
-            data = TikTok(query).get_video()
+            data = TikTokFetcher(query).get_video()
             results = [
                 InlineQueryResultVideo(
                     id=data.get("id"),
