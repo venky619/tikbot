@@ -68,11 +68,10 @@ def process_video(update, url: str, text: str):
                 open(f.name, "rb"),
                 disable_notification=True,
                 caption=(
-                    f"({message.from_user.name}) {caption} "
+                    f"_({message.from_user.name})_ \n{caption} "
                     if not text
-                    else f"({message.from_user.name}) {text}\n{caption} "
-                )
-                + url,
+                    else f"(_{message.from_user.name}) {text}_\n[{caption}](url) "
+                ), parse_mode=telegram.ParseMode.MARKDOWN
             )
             try:
                 message.delete()
