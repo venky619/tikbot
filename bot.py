@@ -79,7 +79,7 @@ def process_video(update, url: str, text: str):
                     if not text
                     else f"_({message.from_user.name})__ **{text}** "
                 )
-                + "\n\n[{caption}]({url})",
+                + f"\n\n[{caption}]({url})",
                 parse_mode=ParseMode.MARKDOWN,
             )
             try:
