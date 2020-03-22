@@ -11,11 +11,11 @@ class TikTok:
         self.session = HTMLSession()
 
         self.session.headers = {
-            'accept-encoding': 'gzip, deflate, br',
-            'accept-language': 'en',
-            'user-agent': 'Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML like Gecko) Chrome/44.0.2403.155 Safari/537.36',
-            'accept': '*/*',
-            'dnt': '1',
+            "accept-encoding": "gzip, deflate, br",
+            "accept-language": "en",
+            "user-agent": "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML like Gecko) Chrome/44.0.2403.155 Safari/537.36",
+            "accept": "*/*",
+            "dnt": "1",
         }
 
     def get_video(self) -> dict:
@@ -31,4 +31,11 @@ class TikTok:
         music = req.html.find(".music-info", first=True).text
         stats = req.html.find(".video-meta-count", first=True).text
         vid_id = req.html.find("input", first=True).attrs.get("value").split("/")[-1]
-        return {"src": src, "caption": "%s (%s) - %s" % (video_title, music, stats), "title": video_title, "music": music, "stats": stats, "id": vid_id}
+        return {
+            "src": src,
+            "caption": "%s (%s) - %s" % (video_title, music, stats),
+            "title": video_title,
+            "music": music,
+            "stats": stats,
+            "id": vid_id,
+        }
