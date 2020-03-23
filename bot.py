@@ -70,17 +70,18 @@ def process_video(update, url: str, text: str):
                 shutil.copyfileobj(r.raw, f)
             processing_status.delete()
             logger.info("Processed video %s" % url)
-            caption = video_data.get("caption")
+            video_caption = video_data.get("caption")
+            caption = (
+                f"*({message.from_user.name})* "
+                if not text
+                else f"*({message.from_user.name})* _{text}_\n "
+            ) + f"\n[{video_caption}]({url})"
             reply = message.reply_video(
                 open(f.name, "rb"),
                 disable_notification=True,
-                caption=(
-                    f"__({message.from_user.name})__ "
-                    if not text
-                    else f"_({message.from_user.name})__ **{text}** "
-                )
-                + f"\n\n[{caption}]({url})",
+                caption=caption,
                 parse_mode=ParseMode.MARKDOWN,
+                quote=False,
             )
             try:
                 message.delete()
