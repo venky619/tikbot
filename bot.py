@@ -95,15 +95,20 @@ def inline_handler(update, context):
     if query and "vm.tiktok.com" in query:
         try:
             data = TikTokFetcher(query).get_video()
+
+            video_caption = data.get("caption")
+            caption = f"\n[{video_caption}]({query})"
+
             results = [
                 InlineQueryResultVideo(
                     id=data.get("id"),
                     video_url=data.get("src"),
                     mime_type="video/mp4",
-                    caption=data.get("caption"),
+                    caption=caption,
                     title="Send this video",
                     description=data.get("title"),
                     thumb_url="https://storage.googleapis.com/tiktokbot/icon.jpg",
+                    parse_mode=ParseMode.MARKDOWN,
                 )
             ]
             update.inline_query.answer(results)
