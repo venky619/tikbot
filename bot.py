@@ -103,10 +103,13 @@ def inline_handler(update, context):
     if query and "vm.tiktok.com" in query:
         try:
             data = TikTokFetcher(query).get_video()
-
-            video_caption = data.get("caption")
-            caption = f"\n[{video_caption}]({query})"
-
+            item_infos = data.get("itemInfos", {})
+            likes = item_infos.get("diggCount")
+            comments = item_infos.get("commentCount")
+            plays = item_infos.get("playCount")
+            shares = item_infos.get("shareCount")
+            video_caption = item_infos.get("text")
+            caption = f"\n[{video_caption}]({query})\n{int(likes):.} ❤️️ - {int(comments):.} 💬 - {int(plays):.} ▶️️ - {int(shares):.} ✉️"
             results = [
                 InlineQueryResultVideo(
                     id=data.get("id"),
