@@ -66,12 +66,15 @@ def process_video(update, url: str, text: str):
         # Initialize a temporary file in-memory for storing and then uploading the video
         with NamedTemporaryFile(suffix=".mp4") as f:
             # Get the video
-            with requests.get(video_data.get("src"), stream=True) as r:
+            item_infos = video_data.get("itemInfos", {})
+            with requests.get(
+                item_infos.get("video", {}).get("urls", [])[0], stream=True
+            ) as r:
                 r.raise_for_status()
                 shutil.copyfileobj(r.raw, f)
             processing_status.delete()
             logger.info("Processed video %s" % url)
-            video_caption = video_data.get("caption")
+            video_caption = item_infos.get("text")
             caption = (
                 f"*({message.from_user.name})* "
                 if not text

@@ -1,4 +1,11 @@
+import json
+
+from pip._internal.cli.cmdoptions import src
 from requests_html import HTMLSession
+
+
+class TikTokError(Exception):
+    pass
 
 
 class TikTokFetcher:
@@ -13,9 +20,8 @@ class TikTokFetcher:
         # Initialize the requests session
         self.session = HTMLSession()
         self.session.headers = {
-            "accept-encoding": "gzip, deflate, br",
             "accept-language": "en",
-            "user-agent": "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML like Gecko) Chrome/44.0.2403.155 Safari/537.36",
+            "user-agent": "@tiktokurlbot/0.1",
             "accept": "*/*",
             "dnt": "1",
         }
@@ -27,20 +33,14 @@ class TikTokFetcher:
         """
         # Fetch the original URL
         req = self.session.get(self.url)
-        assert req.ok, "Could not make request to tiktok: %s" % req
-        src = req.html.find("video", first=True).attrs.get("src")
-        assert src is not None, "Could not find video"
-
-        # Grab the required attributes
-        video_title = req.html.find(".video-meta-title", first=True).text
-        music = req.html.find(".music-info", first=True).text
-        stats = req.html.find(".video-meta-count", first=True).text
-        vid_id = req.html.find("input", first=True).attrs.get("value").split("/")[-1]
-        return {
-            "src": src,
-            "caption": "%s (%s) - %s" % (video_title, music, stats),
-            "title": video_title,
-            "music": music,
-            "stats": stats,
-            "id": vid_id,
-        }
+        scripts = [
+            n.text
+            for n in req.html.find("script")
+            if n.text.startswith("window.__INIT_PROPS__")
+        ]
+        if len(scripts) == 0:
+            raise TikTokError("Could not find props")
+        src = json.loads(str(scripts[0]).replace("window.__INIT_PROPS__ = ", ""))
+        video_data = src.get("/v/:id", {}).get("videoData", {})
+        assert len(video_data.keys()) != 0, "Returned video data is empty"
+        return video_data
