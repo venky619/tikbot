@@ -71,11 +71,19 @@ def process_video(update, url: str, text: str):
                 shutil.copyfileobj(r.raw, f)
             logger.info("Processed video %s" % url)
             video_caption = item_infos.get("text")
+            likes = item_infos.get("diggCount")
+            comments = item_infos.get("commentCount")
+            plays = item_infos.get("playCount")
+            shares = item_infos.get("shareCount")
             caption = (
-                f"*({message.from_user.name})* "
-                if not text
-                else f"*({message.from_user.name})* _{text}_\n "
-            ) + f"\n[{video_caption}]({url})"
+                (
+                    f"*({message.from_user.name})* "
+                    if not text
+                    else f"*({message.from_user.name})* _{text}_\n "
+                )
+                + f"\n[{video_caption}]({url})\n"
+                + f"{int(likes):.} ❤️️ - {int(comments):.} 💬 - {int(plays):.} ▶️️ - {int(shares):.} ✉️"
+            )
             reply = message.reply_video(
                 open(f.name, "rb"),
                 disable_notification=True,
