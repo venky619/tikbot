@@ -51,14 +51,11 @@ def tiktok_handler(update, context):
 def process_video(update, url: str, text: str):
     message = update.effective_message
     if "vm.tiktok.com/" in url:
-        processing_status = message.reply_markdown(
-            "Downloading %s 🤯🤓😇🤖" % url, disable_notification=True
-        )
         try:
             video_data = TikTokFetcher(url).get_video()
         except Exception as ex:
             # Update the status
-            processing_status.edit_text(
+            message.reply_markdown(
                 f"Could not download video 😭 are you sure this is a valid TikTok video? \n\n```{str(ex)}```",
                 parse_mode=ParseMode.MARKDOWN,
             )
@@ -72,7 +69,6 @@ def process_video(update, url: str, text: str):
             ) as r:
                 r.raise_for_status()
                 shutil.copyfileobj(r.raw, f)
-            processing_status.delete()
             logger.info("Processed video %s" % url)
             video_caption = item_infos.get("text")
             caption = (
