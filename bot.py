@@ -56,10 +56,11 @@ def process_video(update, url: str, text: str):
         )
         try:
             video_data = TikTokFetcher(url).get_video()
-        except Exception:
+        except Exception as ex:
             # Update the status
             processing_status.edit_text(
-                "Could not download video 😭 are you sure this is a valid TikTok video?"
+                f"Could not download video 😭 are you sure this is a valid TikTok video? \n\n```{str(ex)}```",
+                parse_mode=ParseMode.MARKDOWN,
             )
             return
         # Initialize a temporary file in-memory for storing and then uploading the video
