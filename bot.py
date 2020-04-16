@@ -82,7 +82,7 @@ def process_video(update, url: str, text: str):
                     else f"*({message.from_user.name})* _{text}_\n "
                 )
                 + f"\n[{video_caption}]({url})\n"
-                + f"{int(likes):.} ❤️️ - {int(comments):.} 💬 - {int(plays):.} ▶️️ - {int(shares):.} ✉️"
+                + f"{int(likes):,} ❤️️ - {int(comments):,} 💬 - {int(plays):,} ▶️️ - {int(shares):,} ✉️"
             )
             reply = message.reply_video(
                 open(f.name, "rb"),
@@ -109,16 +109,21 @@ def inline_handler(update, context):
             plays = item_infos.get("playCount")
             shares = item_infos.get("shareCount")
             video_caption = item_infos.get("text")
-            caption = f"\n[{video_caption}]({query})\n{int(likes):.} ❤️️ - {int(comments):.} 💬 - {int(plays):.} ▶️️ - {int(shares):.} ✉️"
+            meta = item_infos.get("video", {}).get("videoMeta", {})
+            caption = f"\n[{video_caption}]({query})\n{int(likes):,} ❤️️ - {int(comments):,} 💬 - {int(plays):,} ▶️️ - {int(shares):,} ✉️"
             results = [
                 InlineQueryResultVideo(
-                    id=data.get("id"),
-                    video_url=data.get("src"),
+                    id=item_infos.get("id"),
+                    video_url=item_infos.get("video", {}).get("urls", [])[0],
                     mime_type="video/mp4",
+                    width=meta.get("width"),
+                    height=meta.get("height"),
                     caption=caption,
                     title="Send this video",
-                    description=data.get("title"),
-                    thumb_url="https://storage.googleapis.com/tiktokbot/icon.jpg",
+                    description=video_caption,
+                    thumb_url=item_infos.get(
+                        "covers", ["https://storage.googleapis.com/tiktokbot/icon.jpg"]
+                    )[0],
                     parse_mode=ParseMode.MARKDOWN,
                 )
             ]
