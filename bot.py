@@ -6,7 +6,7 @@ from tempfile import NamedTemporaryFile
 import requests
 import sentry_sdk
 from dotenv import load_dotenv, find_dotenv
-from telegram import MessageEntity, InlineQueryResultVideo, ParseMode
+from telegram import MessageEntity, InlineQueryResultVideo, ParseMode, Update
 from telegram.error import BadRequest
 from telegram.ext import (
     Updater,
@@ -50,6 +50,10 @@ def tiktok_handler(update, context):
 
 def process_video(update, url: str, text: str):
     message = update.effective_message
+    # Grab the original reply_to_message id to use later
+    reply_to_message_id = None
+    if message.reply_to_message is not None:
+        reply_to_message_id = message.reply_to_message.message_id
     if "vm.tiktok.com/" in url:
         try:
             video_data = TikTokFetcher(url).get_video()
@@ -71,18 +75,20 @@ def process_video(update, url: str, text: str):
                 shutil.copyfileobj(r.raw, f)
             logger.info("Processed video %s" % url)
             video_caption = item_infos.get("text")
+            if "#" in video_caption:
+                video_caption = video_caption.split("#")[0]
             likes = item_infos.get("diggCount")
             comments = item_infos.get("commentCount")
             plays = item_infos.get("playCount")
             shares = item_infos.get("shareCount")
             caption = (
                 (
-                    f"*({message.from_user.name})* "
+                    f"{message.from_user.name} "
                     if not text
-                    else f"*({message.from_user.name})* _{text}_\n "
+                    else f"*({message.from_user.name})* {text}\n "
                 )
                 + f"\n[{video_caption}]({url})\n"
-                + f"{int(likes):,} ❤️️ - {int(comments):,} 💬 - {int(plays):,} ▶️️ - {int(shares):,} ✉️"
+                + f"{int(likes):,} ❤️️ • {int(comments):,} 💬 • {int(plays):,} ▶️️ • {int(shares):,} ✉️"
             )
             reply = message.reply_video(
                 open(f.name, "rb"),
@@ -90,6 +96,7 @@ def process_video(update, url: str, text: str):
                 caption=caption,
                 parse_mode=ParseMode.MARKDOWN,
                 quote=False,
+                reply_to_message_id=reply_to_message_id,
             )
             try:
                 message.delete()
@@ -109,8 +116,10 @@ def inline_handler(update, context):
             plays = item_infos.get("playCount")
             shares = item_infos.get("shareCount")
             video_caption = item_infos.get("text")
+            if "#" in video_caption:
+                video_caption = video_caption.split("#")[0]
             meta = item_infos.get("video", {}).get("videoMeta", {})
-            caption = f"\n[{video_caption}]({query})\n{int(likes):,} ❤️️ - {int(comments):,} 💬 - {int(plays):,} ▶️️ - {int(shares):,} ✉️"
+            caption = f"\n[{video_caption}]({query})\n{int(likes):,} ❤️️ • {int(comments):,} 💬 • {int(plays):,} ▶️️ • {int(shares):,} ✉️"
             results = [
                 InlineQueryResultVideo(
                     id=item_infos.get("id"),
