@@ -85,7 +85,7 @@ def process_video(update, url: str, text: str):
                 (
                     f"{message.from_user.name} "
                     if not text
-                    else f"*({message.from_user.name})* {text}\n "
+                    else f"({message.from_user.name}:* {text}\n "
                 )
                 + f"\n[{video_caption}]({url})\n"
                 + f"{int(likes):,} ❤️️ • {int(comments):,} 💬 • {int(plays):,} ▶️️ • {int(shares):,} ✉️"
