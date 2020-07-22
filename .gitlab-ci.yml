@@ -1,7 +1,5 @@
 stages:
   - build
-  - test
-  - release
   - deploy
 
 
@@ -9,9 +7,10 @@ image: docker:latest
 services:
   - docker:dind
 
-include:
-  - template: Container-Scanning.gitlab-ci.yml
 
+variables:
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_CERTDIR: "/certs"
 
 .job_template: &job_definition
   before_script:
@@ -22,33 +21,13 @@ include:
 
 build:
   stage: build
-  variables:
-    IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
   before_script:
-    - docker info
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build -t $IMAGE .
-    - docker push $IMAGE
-  except:
-    variables:
-      - $CI_COMMIT_MESSAGE =~ /skip-build/
-      - $CI_COMMIT_MESSAGE =~ /no-build/
-
-release:
-  stage: release
-  before_script:
-    - docker info
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-  only:
-    - master
-  variables:
-    IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA
-    PROD_IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG:latest
-  script:
-    - docker pull $IMAGE
-    - docker tag $IMAGE $PROD_IMAGE
-    - docker push $PROD_IMAGE
+    - docker pull $CI_REGISTRY_IMAGE:latest || true
+    - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
   except:
     variables:
       - $CI_COMMIT_MESSAGE =~ /skip-build/
