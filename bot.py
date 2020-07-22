@@ -6,8 +6,15 @@ from tempfile import NamedTemporaryFile
 import requests
 import sentry_sdk
 from dotenv import load_dotenv, find_dotenv
-from telegram import MessageEntity, InlineQueryResultVideo, ParseMode, Update
+from telegram import (
+    MessageEntity,
+    InlineQueryResultVideo,
+    ParseMode,
+    Update,
+    ChatAction,
+)
 from telegram.error import BadRequest
+from telegram.ext.dispatcher import run_async
 from telegram.ext import (
     Updater,
     MessageHandler,
@@ -15,6 +22,8 @@ from telegram.ext import (
     InlineQueryHandler,
     CommandHandler,
 )
+
+from telegram.chat import Chat
 
 from tiktokfetcher import TikTokFetcher
 
@@ -32,6 +41,7 @@ if os.getenv("SENTRY_DSN"):
     sentry_sdk.init(os.getenv("SENTRY_DSN"))
 
 
+@run_async
 def tiktok_handler(update, context):
     message = update.effective_message
     message_entities = [
@@ -66,12 +76,18 @@ def process_video(update, url: str, text: str):
             return
         # Initialize a temporary file in-memory for storing and then uploading the video
         with NamedTemporaryFile(suffix=".mp4") as f:
+            message.chat.send_action(action=ChatAction.UPLOAD_VIDEO)
             # Get the video
             item_infos = video_data.get("itemInfos", {})
             with requests.get(
                 item_infos.get("video", {}).get("urls", [])[0], stream=True
             ) as r:
-                r.raise_for_status()
+                if not r.ok:
+                    logger.debug(f"Failed to download video {item_infos.get('')}")
+                    message.reply_markdown(
+                        f"Could not download video, TikTok gave a bad response: {r.status_code}"
+                    )
+                    return
                 shutil.copyfileobj(r.raw, f)
             logger.info("Processed video %s" % url)
             video_caption = item_infos.get("text")
@@ -81,15 +97,25 @@ def process_video(update, url: str, text: str):
             comments = item_infos.get("commentCount")
             plays = item_infos.get("playCount")
             shares = item_infos.get("shareCount")
-            caption = (
-                (
-                    f"{message.from_user.name} "
+
+            user_part = ""
+            if message.chat.type is not Chat.PRIVATE and message.from_user is not None:
+                user_part = (
+                    f"{message.from_user.name}: "
                     if not text
-                    else f"({message.from_user.name}:* {text}\n "
+                    else f"{message.from_user.name}: {text}\n "
                 )
-                + f"\n[{video_caption}]({url})\n"
-                + f"{int(likes):,} ❤️️ • {int(comments):,} 💬 • {int(plays):,} ▶️️ • {int(shares):,} ✉️"
+
+            caption = (
+                user_part
+                + (
+                    f"\n[{video_caption}]({url})\n"
+                    if len(video_caption) > 0
+                    else f"[TikTok]({url})"
+                )
+                + f"{int(likes):,} ❤️️ {int(comments):,} 💬 {int(plays):,} ▶️️ {int(shares):,} ✉️"
             )
+
             reply = message.reply_video(
                 open(f.name, "rb"),
                 disable_notification=True,
@@ -98,6 +124,7 @@ def process_video(update, url: str, text: str):
                 quote=False,
                 reply_to_message_id=reply_to_message_id,
             )
+
             try:
                 message.delete()
             except BadRequest:
@@ -119,7 +146,11 @@ def inline_handler(update, context):
             if "#" in video_caption:
                 video_caption = video_caption.split("#")[0]
             meta = item_infos.get("video", {}).get("videoMeta", {})
-            caption = f"\n[{video_caption}]({query})\n{int(likes):,} ❤️️ • {int(comments):,} 💬 • {int(plays):,} ▶️️ • {int(shares):,} ✉️"
+            video_link = f"[{video_caption}]({query})" if video_caption else query
+            caption = (
+                video_link
+                + f"\n{int(likes):,} ❤️️ {int(comments):,} 💬 {int(plays):,} ▶️️ {int(shares):,} ✉️"
+            )
             results = [
                 InlineQueryResultVideo(
                     id=item_infos.get("id"),
@@ -143,7 +174,7 @@ def inline_handler(update, context):
 
 def start(update, context):
     update.effective_message.reply_text(
-        "Hey! 👋🏽 Add me to a group, send a TikTok share link and I'll reply with the actual video!"
+        "Hey! 👋🏽 Add me to a group, send me a private message or mention me a TikTok share link and I'll reply with the actual video!"
     )
 
 

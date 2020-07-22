@@ -1,6 +1,5 @@
 import json
 
-from pip._internal.cli.cmdoptions import src
 from requests_html import HTMLSession
 
 
