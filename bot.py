@@ -101,7 +101,7 @@ def process_video(update, url: str, text: str):
             user_part = ""
             if message.chat.type is not Chat.PRIVATE and message.from_user is not None:
                 user_part = (
-                    f"{message.from_user.name}: "
+                    f"{message.from_user.name} "
                     if not text
                     else f"{message.from_user.name}: {text}\n "
                 )
