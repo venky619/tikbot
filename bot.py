@@ -111,7 +111,7 @@ def process_video(update, url: str, text: str):
                 + (
                     f"\n[{video_caption}]({url})\n"
                     if len(video_caption) > 0
-                    else f"[TikTok]({url})"
+                    else f"\n[TikTok]({url})\n"
                 )
                 + f"{int(likes):,} ❤️️ {int(comments):,} 💬 {int(plays):,} ▶️️ {int(shares):,} ✉️"
             )
@@ -146,7 +146,9 @@ def inline_handler(update, context):
             if "#" in video_caption:
                 video_caption = video_caption.split("#")[0]
             meta = item_infos.get("video", {}).get("videoMeta", {})
-            video_link = f"[{video_caption}]({query})" if video_caption else query
+            video_link = (
+                f"[{video_caption}]({query})" if video_caption else f"[TikTok]({query})"
+            )
             caption = (
                 video_link
                 + f"\n{int(likes):,} ❤️️ {int(comments):,} 💬 {int(plays):,} ▶️️ {int(shares):,} ✉️"
