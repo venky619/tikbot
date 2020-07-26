@@ -6,11 +6,11 @@ from tempfile import NamedTemporaryFile
 import requests
 import sentry_sdk
 from dotenv import load_dotenv, find_dotenv
+from sentry_sdk import add_breadcrumb, capture_exception, configure_scope
 from telegram import (
     MessageEntity,
     InlineQueryResultVideo,
     ParseMode,
-    Update,
     ChatAction,
 )
 from telegram.error import BadRequest
@@ -43,38 +43,43 @@ if os.getenv("SENTRY_DSN"):
 
 @run_async
 def tiktok_handler(update, context):
-    message = update.effective_message
-    message_entities = [
-        n
-        for n in message.parse_entities([MessageEntity.URL]).values()
-        if "vm.tiktok.com/" in n
-    ]
-    # The input message without the TikTok URL
-    original_message = "".join(
-        [str(message.text).replace(url, "") for url in message_entities]
-    )
-    # Iterate over all TikTok URLs
-    for url in message_entities:
-        process_video(update, url, original_message)
+    with configure_scope() as scope:
+        message = update.effective_message
+        scope.set_user(
+            {"username": message.from_user.username, "id": message.from_user.link,}
+        )
+        scope.set_extra("message", message.text)
+        message_entities = [
+            n
+            for n in message.parse_entities([MessageEntity.URL]).values()
+            if "vm.tiktok.com/" in n
+        ]
+        # The input message without the TikTok URL
+        original_message = "".join(
+            [str(message.text).replace(url, "") for url in message_entities]
+        )
+        # Iterate over all TikTok URLs
+        for url in message_entities:
+            try:
+                process_video(update, url, original_message)
+            except Exception as e:
+                capture_exception(e)
+                logger.warning("Failed to download video %s: %s" % (url, e))
+                message.reply_html("Could not process video, sorry! `%s`" % e)
 
 
 def process_video(update, url: str, text: str):
     message = update.effective_message
-    # Grab the original reply_to_message id to use later
-    reply_to_message_id = None
-    if message.reply_to_message is not None:
-        reply_to_message_id = message.reply_to_message.message_id
     if "vm.tiktok.com/" in url:
-        try:
-            video_data = TikTokFetcher(url).get_video()
-        except Exception as ex:
-            # Update the status
-            message.reply_markdown(
-                f"Could not download video 😭 are you sure this is a valid TikTok video? \n\n```{str(ex)}```",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-            return
+        add_breadcrumb(
+            category="telegram",
+            message="Processing video %s, requested by %s"
+            % (url, message.from_user.name),
+            level="info",
+        )
+        video_data = TikTokFetcher(url).get_video()
         # Initialize a temporary file in-memory for storing and then uploading the video
+        size = -1
         with NamedTemporaryFile(suffix=".mp4") as f:
             message.chat.send_action(action=ChatAction.UPLOAD_VIDEO)
             # Get the video
@@ -84,10 +89,17 @@ def process_video(update, url: str, text: str):
             ) as r:
                 if not r.ok:
                     logger.debug(f"Failed to download video {item_infos.get('')}")
-                    message.reply_markdown(
-                        f"Could not download video, TikTok gave a bad response: {r.status_code}"
+                    add_breadcrumb(
+                        category="tiktok",
+                        message="Failed to download video from TikTok: %s"
+                        % r.status_code,
+                        level="error",
+                    )
+                    message.reply_html(
+                        f"Could not download video \U0001f613, TikTok gave a bad response \U0001f97a ({r.status_code})"
                     )
                     return
+                size = int(r.headers.get("Content-Length", -2))
                 shutil.copyfileobj(r.raw, f)
             logger.info("Processed video %s" % url)
             video_caption = item_infos.get("text")
@@ -97,6 +109,7 @@ def process_video(update, url: str, text: str):
             comments = item_infos.get("commentCount")
             plays = item_infos.get("playCount")
             shares = item_infos.get("shareCount")
+            video_caption = video_caption.strip()
 
             user_part = ""
             if message.chat.type is not Chat.PRIVATE and message.from_user is not None:
@@ -109,21 +122,32 @@ def process_video(update, url: str, text: str):
             caption = (
                 user_part
                 + (
-                    f"\n[{video_caption}]({url})\n"
-                    if len(video_caption) > 0
-                    else f"\n[TikTok]({url})\n"
+                    f'\n<a href="{url}">{video_caption}</a>\n'
+                    if len(video_caption.replace(" ", "")) > 0
+                    else f'\n<a href="{url}">TikTok</a>\n'
                 )
-                + f"{int(likes):,} ❤️️ {int(comments):,} 💬 {int(plays):,} ▶️️ {int(shares):,} ✉️"
+                + (
+                    f"{int(likes):,} \u2764\ufe0f {int(comments):,} \U0001f4ad {int(plays):,} \u23ef {int(shares):,} \U0001f4ea"
+                )
             )
-
-            reply = message.reply_video(
-                open(f.name, "rb"),
-                disable_notification=True,
-                caption=caption,
-                parse_mode=ParseMode.MARKDOWN,
-                quote=False,
-                reply_to_message_id=reply_to_message_id,
-            )
+            size = (size / 1024) / 1024
+            if size > 50.0:
+                add_breadcrumb(
+                    category="tiktok",
+                    message="Video was too large: %s" % url,
+                    level="error",
+                )
+                caption += (
+                    '\n\U0001f913\u26a1\ufe0f This video was too large to be sent via Telegram (%dmb/50mb), but you may download it <a href="%s">directly from TikTok</a>'
+                ) % (size, item_infos.get("video", {}).get("urls", [])[0])
+                reply = message.reply_html(caption, parse_mode=ParseMode.HTML,)
+            else:
+                reply = message.reply_video(
+                    open(f.name, "rb"),
+                    disable_notification=True,
+                    caption=caption,
+                    parse_mode=ParseMode.HTML,
+                )
 
             try:
                 message.delete()
@@ -147,11 +171,13 @@ def inline_handler(update, context):
                 video_caption = video_caption.split("#")[0]
             meta = item_infos.get("video", {}).get("videoMeta", {})
             video_link = (
-                f"[{video_caption}]({query})" if video_caption else f"[TikTok]({query})"
+                f'\n<a href="{query}">{video_caption}</a>\n'
+                if len(video_caption.replace(" ", "")) > 0
+                else f'\n<a href="{query}">TikTok</a>\n'
             )
             caption = (
                 video_link
-                + f"\n{int(likes):,} ❤️️ {int(comments):,} 💬 {int(plays):,} ▶️️ {int(shares):,} ✉️"
+                + f"{int(likes):,} \u2764\ufe0f {int(comments):,} \U0001f4ad {int(plays):,} \u23ef {int(shares):,} \U0001f4ea"
             )
             results = [
                 InlineQueryResultVideo(
@@ -166,7 +192,7 @@ def inline_handler(update, context):
                     thumb_url=item_infos.get(
                         "covers", ["https://storage.googleapis.com/tiktokbot/icon.jpg"]
                     )[0],
-                    parse_mode=ParseMode.MARKDOWN,
+                    parse_mode=ParseMode.HTML,
                 )
             ]
             update.inline_query.answer(results)
@@ -176,7 +202,7 @@ def inline_handler(update, context):
 
 def start(update, context):
     update.effective_message.reply_text(
-        "Hey! 👋🏽 Add me to a group, send me a private message or mention me a TikTok share link and I'll reply with the actual video!"
+        "Hey! \U0001f44b\U0001f3fd Add me to a group, send me a private message or mention me a TikTok share link and I'll reply with the actual video!"
     )
 
 
