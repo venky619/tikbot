@@ -3,5 +3,6 @@ version: "3.1"
 services:
   bot:
     image: registry.gitlab.com/fronbasal/tikbot/master
+    restart: always
     env_file:
       - .env
