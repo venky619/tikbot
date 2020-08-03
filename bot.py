@@ -52,7 +52,7 @@ def tiktok_handler(update, context):
         message_entities = [
             n
             for n in message.parse_entities([MessageEntity.URL]).values()
-            if "vm.tiktok.com/" in n
+            if "vm.tiktok.com/" in n or "tiktok.com/" in n
         ]
         # The input message without the TikTok URL
         original_message = "".join(
@@ -64,13 +64,15 @@ def tiktok_handler(update, context):
                 process_video(update, url, original_message)
             except Exception as e:
                 capture_exception(e)
-                logger.warning("Failed to download video %s: %s" % (url, e))
-                message.reply_html("Could not process video, sorry! `%s`" % e)
+                logger.warning("Failed to download video %s: %s" % (url, repr(e)))
+                message.reply_html(
+                    "Could not process video, sorry! <pre>%s</pre>" % repr(e)
+                )
 
 
 def process_video(update, url: str, text: str):
     message = update.effective_message
-    if "vm.tiktok.com/" in url:
+    if "vm.tiktok.com/" in url or "tiktok.com" in url:
         add_breadcrumb(
             category="telegram",
             message="Processing video %s, requested by %s"
@@ -158,7 +160,7 @@ def process_video(update, url: str, text: str):
 
 def inline_handler(update, context):
     query = update.inline_query.query.split(" ")[0]
-    if query and "vm.tiktok.com" in query:
+    if query and "vm.tiktok.com" in query or "tiktok.com" in query:
         try:
             data = TikTokFetcher(query).get_video()
             item_infos = data.get("itemInfos", {})

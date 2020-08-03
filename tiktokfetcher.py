@@ -13,7 +13,9 @@ class TikTokFetcher:
         Initialize a new TikTok Fetcher
         :param url: TikTok share URL
         """
-        assert "https://vm.tiktok.com" in url, "Invalid TikTok share link"
+        assert (
+            "https://vm.tiktok.com" in url or "tiktok.com" in url
+        ), "Invalid TikTok share link"
         self.url = url
 
         # Initialize the requests session
@@ -33,13 +35,20 @@ class TikTokFetcher:
         # Fetch the original URL
         req = self.session.get(self.url)
         scripts = [
-            n.text
+            n
             for n in req.html.find("script")
             if n.text.startswith("window.__INIT_PROPS__")
+            or n.attrs.get("id") == "__NEXT_DATA__"
         ]
-        if len(scripts) == 0:
-            raise TikTokError("Could not find props")
-        src = json.loads(str(scripts[0]).replace("window.__INIT_PROPS__ = ", ""))
-        video_data = src.get("/v/:id", {}).get("videoData", {})
+        video_data = {}
+        if scripts[0].attrs.get("id") == "__NEXT_DATA__":
+            # Attempt to use alternative method of obtaining videoData
+            src = json.loads(str(scripts[0].text))
+            video_data = src.get("props", {}).get("pageProps", {}).get("videoData", {})
+        else:
+            src = json.loads(
+                str(scripts[0].text).replace("window.__INIT_PROPS__ = ", "")
+            )
+            video_data = src.get("/v/:id", {}).get("videoData", {})
         assert len(video_data.keys()) != 0, "Returned video data is empty"
         return video_data
