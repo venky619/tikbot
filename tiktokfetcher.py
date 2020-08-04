@@ -1,4 +1,5 @@
 import json
+import re
 
 from requests_html import HTMLSession
 
@@ -13,9 +14,8 @@ class TikTokFetcher:
         Initialize a new TikTok Fetcher
         :param url: TikTok share URL
         """
-        assert (
-            "https://vm.tiktok.com" in url or "tiktok.com" in url
-        ), "Invalid TikTok share link"
+        link_regex = re.compile(r"^https:\/\/(www|m|vm)\.tiktok\.com\/.+$")
+        assert link_regex.match(url), "Invalid TikTok share link"
         self.url = url
 
         # Initialize the requests session

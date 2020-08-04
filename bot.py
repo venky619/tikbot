@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import shutil
 from tempfile import NamedTemporaryFile
 
@@ -40,6 +41,8 @@ dispatcher = updater.dispatcher
 if os.getenv("SENTRY_DSN"):
     sentry_sdk.init(os.getenv("SENTRY_DSN"))
 
+link_regex = re.compile(r"^https:\/\/(www|m|vm)\.tiktok\.com\/.+$")
+
 
 @run_async
 def tiktok_handler(update, context):
@@ -52,7 +55,7 @@ def tiktok_handler(update, context):
         message_entities = [
             n
             for n in message.parse_entities([MessageEntity.URL]).values()
-            if "vm.tiktok.com/" in n or "tiktok.com/" in n
+            if link_regex.match(n)
         ]
         # The input message without the TikTok URL
         original_message = "".join(
@@ -72,95 +75,92 @@ def tiktok_handler(update, context):
 
 def process_video(update, url: str, text: str):
     message = update.effective_message
-    if "vm.tiktok.com/" in url or "tiktok.com" in url:
-        add_breadcrumb(
-            category="telegram",
-            message="Processing video %s, requested by %s"
-            % (url, message.from_user.name),
-            level="info",
-        )
-        video_data = TikTokFetcher(url).get_video()
-        # Initialize a temporary file in-memory for storing and then uploading the video
-        size = -1
-        with NamedTemporaryFile(suffix=".mp4") as f:
-            message.chat.send_action(action=ChatAction.UPLOAD_VIDEO)
-            # Get the video
-            item_infos = video_data.get("itemInfos", {})
-            with requests.get(
-                item_infos.get("video", {}).get("urls", [])[0], stream=True
-            ) as r:
-                if not r.ok:
-                    logger.debug(f"Failed to download video {item_infos.get('')}")
-                    add_breadcrumb(
-                        category="tiktok",
-                        message="Failed to download video from TikTok: %s"
-                        % r.status_code,
-                        level="error",
-                    )
-                    message.reply_html(
-                        f"Could not download video \U0001f613, TikTok gave a bad response \U0001f97a ({r.status_code})"
-                    )
-                    return
-                size = int(r.headers.get("Content-Length", -2))
-                shutil.copyfileobj(r.raw, f)
-            logger.info("Processed video %s" % url)
-            video_caption = item_infos.get("text")
-            if "#" in video_caption:
-                video_caption = video_caption.split("#")[0]
-            likes = item_infos.get("diggCount")
-            comments = item_infos.get("commentCount")
-            plays = item_infos.get("playCount")
-            shares = item_infos.get("shareCount")
-            video_caption = video_caption.strip()
-
-            user_part = ""
-            if message.chat.type is not Chat.PRIVATE and message.from_user is not None:
-                user_part = (
-                    f"{message.from_user.name} "
-                    if not text
-                    else f"{message.from_user.name}: {text}\n "
-                )
-
-            caption = (
-                user_part
-                + (
-                    f'\n<a href="{url}">{video_caption}</a>\n'
-                    if len(video_caption.replace(" ", "")) > 0
-                    else f'\n<a href="{url}">TikTok</a>\n'
-                )
-                + (
-                    f"{int(likes):,} \u2764\ufe0f {int(comments):,} \U0001f4ad {int(plays):,} \u23ef {int(shares):,} \U0001f4ea"
-                )
-            )
-            size = (size / 1024) / 1024
-            if size > 50.0:
+    add_breadcrumb(
+        category="telegram",
+        message="Processing video %s, requested by %s" % (url, message.from_user.name),
+        level="info",
+    )
+    video_data = TikTokFetcher(url).get_video()
+    # Initialize a temporary file in-memory for storing and then uploading the video
+    size = -1
+    with NamedTemporaryFile(suffix=".mp4") as f:
+        message.chat.send_action(action=ChatAction.UPLOAD_VIDEO)
+        # Get the video
+        item_infos = video_data.get("itemInfos", {})
+        with requests.get(
+            item_infos.get("video", {}).get("urls", [])[0], stream=True
+        ) as r:
+            if not r.ok:
+                logger.debug(f"Failed to download video {item_infos.get('')}")
                 add_breadcrumb(
                     category="tiktok",
-                    message="Video was too large: %s" % url,
+                    message="Failed to download video from TikTok: %s" % r.status_code,
                     level="error",
                 )
-                caption += (
-                    '\n\U0001f913\u26a1\ufe0f This video was too large to be sent via Telegram (%dmb/50mb), but you may download it <a href="%s">directly from TikTok</a>'
-                ) % (size, item_infos.get("video", {}).get("urls", [])[0])
-                reply = message.reply_html(caption, parse_mode=ParseMode.HTML,)
-            else:
-                reply = message.reply_video(
-                    open(f.name, "rb"),
-                    disable_notification=True,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
+                message.reply_html(
+                    f"Could not download video \U0001f613, TikTok gave a bad response \U0001f97a ({r.status_code})"
                 )
+                return
+            size = int(r.headers.get("Content-Length", -2))
+            shutil.copyfileobj(r.raw, f)
+        logger.info("Processed video %s" % url)
+        video_caption = item_infos.get("text")
+        if "#" in video_caption:
+            video_caption = video_caption.split("#")[0]
+        likes = item_infos.get("diggCount")
+        comments = item_infos.get("commentCount")
+        plays = item_infos.get("playCount")
+        shares = item_infos.get("shareCount")
+        video_caption = video_caption.strip()
 
-            try:
-                message.delete()
-            except BadRequest:
-                pass
-            return reply
+        user_part = ""
+        if message.chat.type is not Chat.PRIVATE and message.from_user is not None:
+            user_part = (
+                f"{message.from_user.name} "
+                if not text
+                else f"{message.from_user.name}: {text}\n "
+            )
+
+        caption = (
+            user_part
+            + (
+                f'\n<a href="{url}">{video_caption}</a>\n'
+                if len(video_caption.replace(" ", "")) > 0
+                else f'\n<a href="{url}">TikTok</a>\n'
+            )
+            + (
+                f"{int(likes):,} \u2764\ufe0f {int(comments):,} \U0001f4ad {int(plays):,} \u23ef {int(shares):,} \U0001f4ea"
+            )
+        )
+        size = (size / 1024) / 1024
+        if size > 50.0:
+            add_breadcrumb(
+                category="tiktok",
+                message="Video was too large: %s" % url,
+                level="error",
+            )
+            caption += (
+                '\n\U0001f913\u26a1\ufe0f This video was too large to be sent via Telegram (%dmb/50mb), but you may download it <a href="%s">directly from TikTok</a>'
+            ) % (size, item_infos.get("video", {}).get("urls", [])[0])
+            reply = message.reply_html(caption, parse_mode=ParseMode.HTML,)
+        else:
+            reply = message.reply_video(
+                open(f.name, "rb"),
+                disable_notification=True,
+                caption=caption,
+                parse_mode=ParseMode.HTML,
+            )
+
+        try:
+            message.delete()
+        except BadRequest:
+            pass
+        return reply
 
 
 def inline_handler(update, context):
     query = update.inline_query.query.split(" ")[0]
-    if query and "vm.tiktok.com" in query or "tiktok.com" in query:
+    if query and link_regex.match(query):
         try:
             data = TikTokFetcher(query).get_video()
             item_infos = data.get("itemInfos", {})
