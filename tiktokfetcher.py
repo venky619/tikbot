@@ -3,6 +3,8 @@ import re
 
 from requests_html import HTMLSession
 
+from headers import TIKTOK_CDN_HEADERS
+
 
 class TikTokError(Exception):
     pass
@@ -20,12 +22,7 @@ class TikTokFetcher:
 
         # Initialize the requests session
         self.session = HTMLSession()
-        self.session.headers = {
-            "accept-language": "en",
-            "user-agent": "@tiktokurlbot/0.1",
-            "accept": "*/*",
-            "dnt": "1",
-        }
+        self.session.headers = TIKTOK_CDN_HEADERS
 
     def get_video(self) -> dict:
         """
@@ -40,7 +37,6 @@ class TikTokFetcher:
             if n.text.startswith("window.__INIT_PROPS__")
             or n.attrs.get("id") == "__NEXT_DATA__"
         ]
-        video_data = {}
         if scripts[0].attrs.get("id") == "__NEXT_DATA__":
             # Attempt to use alternative method of obtaining videoData
             src = json.loads(str(scripts[0].text))
